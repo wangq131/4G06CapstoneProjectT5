@@ -126,8 +126,6 @@ def start():
     global username, userId, courses, current_page, tasks
     df = get_df_from_csv_in_s3(s3, bucket_name, mock_data_file)
     username = df.loc[0, "username"]  # For PoC purpose
-    userId = df.loc[0, "user_id"]  # For PoC purpose
-    print(userId)
     courses = df.loc[0, "courses"]  # For PoC purpose
     # Parsing it into a Python list
     courses = ast.literal_eval(courses)
@@ -297,6 +295,20 @@ def add_course():
         df.loc[df["username"] == username, "courses"] = list_str
         courses = user_courses
         upload_df_to_s3(df, s3, bucket_name, mock_data_file)
+
+        course_works_df = pd.read_csv(COURSE_WORK_EXTRACTED_INFO)
+        course_works = course_works_df[course_works_df["course"] == new_course]
+
+        for index, row in course_works.iterrows():
+            course_name = row["course"]
+            task_name = row["course_work"]
+            due_date = row["due_date"]
+            weight = row["score_distribution"]
+            est_hours = 3
+            add_task_todo(
+                course_name, task_name, due_date, str(weight), est_hours
+            )
+
         if current_page == "course_page":
             return render_template(
                 "course_page.html",
@@ -355,9 +367,7 @@ def course_detail(course_id):
         due_date = row["due_date"]
         weight = row["score_distribution"]
         est_hours = 3
-        add_task_todo(
-            course_name, task_name, due_date, str(weight), est_hours
-        )
+        add_task_todo(course_name, task_name, due_date, str(weight), est_hours)
 
     return render_template(
         "course_detail_page.html",
@@ -865,11 +875,12 @@ def upload_transcript():
             cGPA = process_transcript_pdf(
                 os.path.join(Transcript_path, filename)
             )
+            cGPA = f"{cGPA}/12 ({cGPA/3}/4)"
             return render_template(
                 "profile_page.html",
                 username=username,
                 current_page=current_page,
-                cGPA=str(cGPA),
+                cGPA=cGPA,
             )
 
     # If it's a GET request, just render the upload form
